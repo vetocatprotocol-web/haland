@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 import { createUser, deleteUser, listUsers, resetPin, unlockUser } from '@/actions/user';
 import { DataTable } from '@/components/shared/data-table';
@@ -38,7 +38,11 @@ export default function UsersPage() {
     setLoading(true);
     const result = await listUsers();
     if (result.success) {
-      setUsers(result.users as UserRow[]);
+      const normalizedUsers = (result.users ?? []).map((user: any) => ({
+        ...user,
+        createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : '',
+      })) as UserRow[];
+      setUsers(normalizedUsers);
     }
     setLoading(false);
   }
@@ -54,7 +58,7 @@ export default function UsersPage() {
     });
     setIsCreating(false);
     if (!result.success) {
-      setMessage(result.message);
+      setMessage(result.message ?? 'Gagal membuat akun.');
       return;
     }
     setTemporaryPin(result.temporaryPin ?? null);
@@ -65,7 +69,7 @@ export default function UsersPage() {
   async function handleResetPin(userId: string) {
     const result = await resetPin({ id: userId });
     if (!result.success) {
-      setMessage(result.message);
+      setMessage(result.message ?? 'Gagal mereset PIN.');
       return;
     }
     setTemporaryPin(result.temporaryPin ?? null);
@@ -76,7 +80,7 @@ export default function UsersPage() {
   async function handleUnlock(userId: string) {
     const result = await unlockUser({ id: userId });
     if (!result.success) {
-      setMessage(result.message);
+      setMessage(result.message ?? 'Gagal membuka kunci akun.');
       return;
     }
     setMessage('Akun berhasil dibuka kuncinya.');
@@ -86,14 +90,14 @@ export default function UsersPage() {
   async function handleDelete(userId: string) {
     const result = await deleteUser({ id: userId });
     if (!result.success) {
-      setMessage(result.message);
+      setMessage(result.message ?? 'Gagal menonaktifkan akun.');
       return;
     }
     setMessage('Akun dinonaktifkan.');
     await loadUsers();
   }
 
-  const columns = [
+  const columns: Array<{ key: keyof UserRow; header: string; render?: (row: UserRow) => ReactNode }> = [
     { key: 'username', header: 'Username' },
     { key: 'name', header: 'Nama' },
     { key: 'role', header: 'Role' },

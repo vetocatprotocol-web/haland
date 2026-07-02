@@ -1,15 +1,30 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { BarChart3, CalendarDays, Users, Warehouse } from 'lucide-react';
-
-const cards = [
-  { title: 'Pelanggan', value: '—', subtitle: 'Data placeholder', icon: Users },
-  { title: 'Appointment Hari Ini', value: '—', subtitle: 'Data placeholder', icon: CalendarDays },
-  { title: 'Stok Menipis', value: '—', subtitle: 'Data placeholder', icon: Warehouse },
-  { title: 'Ringkasan Bisnis', value: '—', subtitle: 'Data placeholder', icon: BarChart3 },
-];
+import { getAppointmentSummary } from '@/actions/appointment';
 
 export default function DashboardPage() {
+  const [appointmentsToday, setAppointmentsToday] = useState<number | null>(null);
+
+  useEffect(() => {
+    void loadData();
+  }, []);
+
+  async function loadData() {
+    const result = await getAppointmentSummary();
+    if (result.success) {
+      setAppointmentsToday(result.appointmentsToday);
+    }
+  }
+
+  const cards = [
+    { title: 'Pelanggan', value: '—', subtitle: 'Data placeholder', icon: Users },
+    { title: 'Appointment Hari Ini', value: appointmentsToday === null ? '—' : String(appointmentsToday), subtitle: 'Data real dari jadwal hari ini', icon: CalendarDays },
+    { title: 'Stok Menipis', value: '—', subtitle: 'Data placeholder', icon: Warehouse },
+    { title: 'Ringkasan Bisnis', value: '—', subtitle: 'Data placeholder', icon: BarChart3 },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">

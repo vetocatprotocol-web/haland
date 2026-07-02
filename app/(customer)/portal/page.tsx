@@ -1,15 +1,30 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { CalendarDays, ReceiptText, ScrollText, PawPrint, CircleUserRound } from 'lucide-react';
-
-const cards = [
-  { title: 'Hewan Peliharaan', value: '—', subtitle: 'Data placeholder', icon: PawPrint },
-  { title: 'Janji Temu', value: '—', subtitle: 'Data placeholder', icon: CalendarDays },
-  { title: 'Tagihan', value: '—', subtitle: 'Data placeholder', icon: ReceiptText },
-  { title: 'Rekam Medis', value: '—', subtitle: 'Data placeholder', icon: ScrollText },
-];
+import { getPortalAppointmentSummary } from '@/actions/appointment';
 
 export default function PortalPage() {
+  const [upcomingAppointments, setUpcomingAppointments] = useState<number | null>(null);
+
+  useEffect(() => {
+    void loadData();
+  }, []);
+
+  async function loadData() {
+    const result = await getPortalAppointmentSummary();
+    if (result.success) {
+      setUpcomingAppointments(result.upcomingAppointments ?? 0);
+    }
+  }
+
+  const cards = [
+    { title: 'Hewan Peliharaan', value: '—', subtitle: 'Data placeholder', icon: PawPrint },
+    { title: 'Janji Temu', value: upcomingAppointments === null ? '—' : String(upcomingAppointments), subtitle: 'Jumlah appointment mendatang Anda', icon: CalendarDays },
+    { title: 'Tagihan', value: '—', subtitle: 'Data placeholder', icon: ReceiptText },
+    { title: 'Rekam Medis', value: '—', subtitle: 'Data placeholder', icon: ScrollText },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
