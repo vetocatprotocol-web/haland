@@ -7,7 +7,7 @@ import { prisma } from '@/lib/db';
 
 const appointmentSchema = z.object({
   petId: z.string().min(1),
-  customerId: z.string().min(1),
+  customerId: z.string().optional(),
   doctorId: z.string().optional().or(z.literal('')),
   date: z.string().min(1),
   queueNumber: z.coerce.number().int().positive().optional().nullable(),
@@ -15,8 +15,15 @@ const appointmentSchema = z.object({
   requestedByCustomer: z.boolean().optional(),
 });
 
-const updateAppointmentSchema = appointmentSchema.extend({
+const updateAppointmentSchema = z.object({
   id: z.string().min(1),
+  petId: z.string().min(1).optional(),
+  customerId: z.string().min(1).optional(),
+  doctorId: z.string().optional(),
+  date: z.string().min(1).optional(),
+  queueNumber: z.coerce.number().int().positive().optional().nullable(),
+  status: z.enum(['WAITING', 'IN_PROGRESS', 'DONE', 'CANCELLED']).optional(),
+  requestedByCustomer: z.boolean().optional(),
 });
 
 const cancelAppointmentSchema = z.object({
@@ -36,9 +43,28 @@ async function getCustomerForSession(sessionId: string) {
 }
 
 export async function listAppointmentLookups() {
+  const session = await auth();
+  const actorRole = getActorRole(session);
+  const actorId = getActorId(session);
+
+  const petsQuery = actorRole === 'CUSTOMER'
+    ? prisma.pet.findMany({
+        where: { customer: { userId: actorId } },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, species: true, customer: { select: { id: true, name: true } } },
+      })
+    : prisma.pet.findMany({
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, species: true, customer: { select: { id: true, name: true } } },
+      });
+
+  const customersQuery = actorRole === 'CUSTOMER'
+    ? prisma.customer.findMany({ where: { userId: actorId }, orderBy: { name: 'asc' }, select: { id: true, name: true } })
+    : prisma.customer.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } });
+
   const [pets, customers, doctors] = await Promise.all([
-    prisma.pet.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, species: true, customer: { select: { id: true, name: true } } } }),
-    prisma.customer.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    petsQuery,
+    customersQuery,
     prisma.user.findMany({ where: { role: 'DOKTER' }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
   ]);
 
@@ -69,17 +95,16 @@ export async function listAppointments() {
     return { success: true, appointments };
   }
 
-  const appointments = await prisma.appointment.findMany({
+  const queryOptions: any = {
     orderBy: { date: 'asc' },
     include: { pet: { select: { id: true, name: true, species: true } }, doctor: { select: { id: true, name: true } }, customer: { select: { id: true, name: true } } },
-  });
+  };
 
   if (actorRole === 'DOKTER') {
-    return {
-      success: true,
-      appointments: appointments.filter((appointment) => !appointment.doctorId || appointment.doctorId === actorId),
-    };
+    queryOptions.where = { OR: [{ doctorId: null }, { doctorId: actorId }] };
   }
+
+  const appointments = await prisma.appointment.findMany(queryOptions);
 
   return { success: true, appointments };
 }
@@ -107,10 +132,6 @@ export async function getAppointment(id: string) {
     if (!customer || appointment.customerId !== customer.id) {
       return { success: false, message: 'Anda tidak berwenang melihat data ini.' };
     }
-  }
-
-  if (actorRole === 'DOKTER' && appointment.doctorId && appointment.doctorId !== actorId) {
-    return { success: false, message: 'Anda tidak berwenang melihat jadwal ini.' };
   }
 
   return { success: true, appointment };
@@ -160,6 +181,15 @@ export async function createAppointment(input: z.infer<typeof appointmentSchema>
 
   if (actorRole !== 'OWNER' && actorRole !== 'ADMIN_KLINIK') {
     return { success: false, message: 'Anda tidak berwenang membuat jadwal.' };
+  }
+
+  if (!parsed.data.customerId) {
+    return { success: false, message: 'Pilih pelanggan untuk membuat jadwal.' };
+  }
+
+  const pet = await prisma.pet.findFirst({ where: { id: parsed.data.petId, customerId: parsed.data.customerId } });
+  if (!pet) {
+    return { success: false, message: 'Hewan yang dipilih tidak cocok dengan pelanggan.' };
   }
 
   const appointment = await prisma.appointment.create({
@@ -262,6 +292,10 @@ export async function cancelAppointment(input: z.infer<typeof cancelAppointmentS
     if (existing.status === 'DONE' || existing.status === 'CANCELLED' || existing.status === 'IN_PROGRESS') {
       return { success: false, message: 'Jadwal yang sedang berjalan tidak bisa dibatalkan.' };
     }
+  }
+
+  if (actorRole === 'DOKTER') {
+    return { success: false, message: 'Dokter tidak dapat membatalkan jadwal.' };
   }
 
   const appointment = await prisma.appointment.update({

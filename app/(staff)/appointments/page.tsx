@@ -12,9 +12,9 @@ type AppointmentRow = {
   status: string;
   queueNumber: number | null;
   requestedByCustomer: boolean;
-  pet: { name: string; species: string };
-  customer: { name: string };
-  doctor: { name: string } | null;
+  pet: { id: string; name: string; species: string };
+  customer: { id: string; name: string };
+  doctor: { id: string; name: string } | null;
 };
 
 type LookupOption = {
@@ -64,9 +64,9 @@ export default function AppointmentsPage() {
   function startEdit(appointment: AppointmentRow) {
     setEditingId(appointment.id);
     setForm({
-      petId: '',
-      customerId: '',
-      doctorId: '',
+      petId: appointment.pet?.id ?? '',
+      customerId: appointment.customer?.id ?? '',
+      doctorId: appointment.doctor?.id ?? '',
       date: appointment.date.slice(0, 16),
       queueNumber: appointment.queueNumber ? String(appointment.queueNumber) : '',
       status: appointment.status as 'WAITING' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED',
@@ -98,7 +98,7 @@ export default function AppointmentsPage() {
   }
 
   async function handleStatus(id: string, status: 'IN_PROGRESS' | 'DONE' | 'CANCELLED') {
-    const result = await updateAppointment({ id, status, petId: '', customerId: '', date: '', queueNumber: undefined, requestedByCustomer: false });
+    const result = await updateAppointment({ id, status });
     if (result.success) {
       setMessage('Status diperbarui.');
       await loadData();

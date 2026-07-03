@@ -42,7 +42,7 @@ export async function getMedicalRecordAccess() {
   return {
     success: true,
     role,
-    canManage: role === 'OWNER' || role === 'DOKTER',
+    canManage: role === 'DOKTER',
     canRead: true,
   };
 }
@@ -118,8 +118,8 @@ export async function createMedicalRecord(input: z.infer<typeof medicalRecordSch
     return { success: false, message: 'Tidak terautentikasi.' };
   }
 
-  if (actorRole === 'ADMIN_KLINIK') {
-    return { success: false, message: 'Admin Klinik hanya bisa melihat rekam medis.' };
+  if (actorRole !== 'DOKTER') {
+    return { success: false, message: 'Hanya Dokter yang dapat membuat rekam medis.' };
   }
 
   const appointment = await prisma.appointment.findUnique({ where: { id: parsed.data.appointmentId } });
@@ -135,7 +135,7 @@ export async function createMedicalRecord(input: z.infer<typeof medicalRecordSch
     data: {
       appointmentId: parsed.data.appointmentId,
       petId: appointment.petId,
-      doctorId: actorRole === 'OWNER' ? appointment.doctorId ?? actorId : actorId,
+      doctorId: actorId,
       diagnosis: parsed.data.diagnosis || null,
       treatment: parsed.data.treatment || null,
       prescription: parsed.data.prescription || null,
@@ -168,11 +168,11 @@ export async function updateMedicalRecord(input: z.infer<typeof updateMedicalRec
     return { success: false, message: 'Rekam medis tidak ditemukan.' };
   }
 
-  if (actorRole === 'ADMIN_KLINIK') {
-    return { success: false, message: 'Admin Klinik hanya bisa melihat rekam medis.' };
+  if (actorRole !== 'DOKTER') {
+    return { success: false, message: 'Hanya Dokter yang dapat mengubah rekam medis.' };
   }
 
-  if (actorRole === 'DOKTER' && existing.doctorId !== actorId) {
+  if (existing.doctorId !== actorId) {
     return { success: false, message: 'Anda hanya bisa mengubah rekam medis pasien yang Anda tangani.' };
   }
 

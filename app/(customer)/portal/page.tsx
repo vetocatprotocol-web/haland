@@ -3,18 +3,23 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, ReceiptText, ScrollText, PawPrint, CircleUserRound } from 'lucide-react';
 import { getPortalAppointmentSummary } from '@/actions/appointment';
+import { getPortalInvoiceSummary } from '@/actions/invoice';
 
 export default function PortalPage() {
   const [upcomingAppointments, setUpcomingAppointments] = useState<number | null>(null);
+  const [unpaidInvoices, setUnpaidInvoices] = useState<number | null>(null);
 
   useEffect(() => {
     void loadData();
   }, []);
 
   async function loadData() {
-    const result = await getPortalAppointmentSummary();
-    if (result.success) {
-      setUpcomingAppointments(result.upcomingAppointments ?? 0);
+    const [appointmentResult, invoiceResult] = await Promise.all([getPortalAppointmentSummary(), getPortalInvoiceSummary()]);
+    if (appointmentResult.success) {
+      setUpcomingAppointments(appointmentResult.upcomingAppointments ?? 0);
+    }
+    if (invoiceResult.success) {
+      setUnpaidInvoices(invoiceResult.unpaidCount ?? 0);
     }
   }
 
